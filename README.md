@@ -111,7 +111,7 @@ Orpheus-FastAPI/
 ### 🐳 Docker compose
 
 The docker compose file orchestrates the Orpheus-FastAPI for audio and a llama.cpp inference server for the base model token generation. The GGUF model is downloaded with the model-init service.
-There are three versions, two for machines that have access to GPU support `docker-compose-gpu.yaml`, `docker-compose-gpu-rocm.yml`  and one for CPU support only: `docker-compose-cpu.yaml`
+There are four versions: three for machines with GPU support — `docker-compose-gpu.yml` (CUDA), `docker-compose-gpu-rocm.yml` (AMD ROCm), and `docker-compose-gpu-vulkan.yml` (any Vulkan-capable GPU, vendor-neutral) — and one for CPU support only: `docker-compose-cpu.yaml`.
 
 ```bash
 cp .env.example .env # Create your .env file from the example
@@ -135,6 +135,13 @@ For ROCm GPU support run
 ```bash
 docker compose -f docker-compose-gpu-rocm.yml up
 ```
+
+For Vulkan GPU support (vendor-neutral — Intel, NVIDIA, or AMD without ROCm) run
+```bash
+docker compose -f docker-compose-gpu-vulkan.yml up
+```
+
+In this configuration the LLM runs on the GPU via Vulkan (through `llama.cpp:server-vulkan`) while the SNAC audio decoder runs on CPU torch. This avoids any CUDA or ROCm dependency on the host. Requirements: a working Vulkan ICD on the host and `/dev/dri` accessible to the container — verify with `vulkaninfo` on the host before starting the stack.
 
 For CPU support run:
 ```bash
