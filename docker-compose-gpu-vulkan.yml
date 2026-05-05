@@ -37,9 +37,6 @@ services:
     privileged: true
     devices:
       - /dev/dri
-    group_add:
-      - video
-      - render
     ipc: host
     shm_size: 8g
     restart: unless-stopped
