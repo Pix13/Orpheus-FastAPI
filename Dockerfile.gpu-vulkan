@@ -1,0 +1,37 @@
+FROM python:3.10-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 \
+    ffmpeg \
+    portaudio19-dev \
+    libjpeg-dev \
+    build-essential \
+    python3-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1001 appuser && \
+    mkdir -p /app/outputs /app && \
+    chown -R appuser:appuser /app
+
+USER appuser
+WORKDIR /app
+
+COPY --chown=appuser:appuser requirements.txt ./requirements.txt
+
+RUN python3 -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip3 install --no-cache-dir -r requirements.txt
+
+COPY --chown=appuser:appuser . .
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    USE_GPU=false
+
+EXPOSE 5005
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5005", "--workers", "1"]
