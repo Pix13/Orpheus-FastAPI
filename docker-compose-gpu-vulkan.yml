@@ -28,11 +28,9 @@ services:
     depends_on:
       model-init:
         condition: service_completed_successfully
+    privileged: true
     devices:
       - /dev/dri
-    group_add:
-      - video
-      - render
     ipc: host
     shm_size: 8g
     restart: unless-stopped
