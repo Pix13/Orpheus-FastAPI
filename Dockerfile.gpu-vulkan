@@ -40,8 +40,9 @@ COPY --chown=appuser:appuser requirements.txt ./requirements.txt
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-# Install CPU PyTorch 2.4 (required by pytorch_dlprim) and other dependencies
+# Install CPU PyTorch 2.4 (required by pytorch_dlprim), pybind11, and other dependencies
 RUN pip3 install --no-cache-dir torch==2.4.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip3 install --no-cache-dir pybind11 && \
     pip3 install --no-cache-dir -r requirements.txt
 
 # Build pytorch_dlprim OpenCL backend from source
