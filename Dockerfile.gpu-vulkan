@@ -51,7 +51,7 @@ RUN git clone --recurse-submodules https://github.com/softcookiepp/pytorch_dlpri
     cd /tmp/pytorch_dlprim && \
     mkdir build && cd build && \
     cmake \
-      -DCMAKE_PREFIX_PATH="/app/venv/lib/python3.10/site-packages/torch/share/cmake/Torch;/app/venv/lib/python3.10/site-packages/pybind11/share/cmake/pybind11" \
+      -DCMAKE_PREFIX_PATH="/app/venv/lib/python3.10/site-packages/torch/share/cmake/Torch;/app/venv/lib/python3.10/site-packages/pybind11/share/cmake" \
       -DCMAKE_INSTALL_PREFIX=/app/pytorch_ocl_install \
       -DPYBIND11_FINDPYTHON=ON \
       .. && \
