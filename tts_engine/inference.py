@@ -34,7 +34,24 @@ import psutil
 
 # Detect if we're on a high-end system based on hardware capabilities
 HIGH_END_GPU = False
-if torch.cuda.is_available():
+GPU_DEVICE = "cpu"
+
+# Check for OpenCL (ocl) device first
+def _ocl_is_available():
+    try:
+        import pytorch_ocl
+        torch.randn(1, device="ocl:0")
+        return True
+    except Exception:
+        return False
+
+if _ocl_is_available():
+    GPU_DEVICE = "ocl:0"
+    HIGH_END_GPU = True
+    if not IS_RELOADER:
+        print("🖥️ Hardware: OpenCL GPU detected")
+        print("🚀 Using high-performance optimizations")
+elif torch.cuda.is_available():
     # Get GPU properties
     props = torch.cuda.get_device_properties(0)
     gpu_name = props.name
@@ -248,7 +265,7 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
     if HIGH_END_GPU:
         # Use more aggressive parameters for faster generation on high-end GPUs
         print("Using optimized parameters for high-end GPU")
-    elif torch.cuda.is_available():
+    elif torch.cuda.is_available() or GPU_DEVICE.startswith("ocl"):
         print("Using optimized parameters for GPU acceleration")
     
     # Create the request payload (model field may not be required by some endpoints but included for compatibility)
@@ -673,8 +690,9 @@ def generate_speech_from_api(prompt, voice=DEFAULT_VOICE, output_file=None, temp
                      top_p=TOP_P, max_tokens=MAX_TOKENS, repetition_penalty=None, 
                      use_batching=True, max_batch_chars=1000):
     """Generate speech from text using Orpheus model with performance optimizations."""
+    gpu_accel = "Yes (OpenCL)" if GPU_DEVICE.startswith("ocl") else ("Yes (High-end)" if HIGH_END_GPU else "Yes" if torch.cuda.is_available() else "No")
     print(f"Starting speech generation for '{prompt[:50]}{'...' if len(prompt) > 50 else ''}'")
-    print(f"Using voice: {voice}, GPU acceleration: {'Yes (High-end)' if HIGH_END_GPU else 'Yes' if torch.cuda.is_available() else 'No'}")
+    print(f"Using voice: {voice}, GPU acceleration: {gpu_accel}")
     
     # Reset performance monitor
     global perf_monitor

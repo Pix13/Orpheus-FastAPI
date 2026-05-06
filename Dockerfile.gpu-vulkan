@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Set non-interactive frontend
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python and other dependencies
+# Install Python, OpenCL, Vulkan, build tools and other dependencies
 RUN apt-get update && apt-get install -y \
     python3.10 \
     python3-pip \
@@ -13,6 +13,15 @@ RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     libjpeg-dev \
     python3-dev \
+    libvulkan1 \
+    vulkan-tools \
+    mesa-vulkan-drivers \
+    opencl-headers \
+    ocl-icd-opencl-dev \
+    cmake \
+    build-essential \
+    git \
+    libsqlite3-dev \
     && apt-get install python3-wheel python3-setuptools \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -31,20 +40,30 @@ COPY --chown=appuser:appuser requirements.txt ./requirements.txt
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-# Install CPU-only PyTorch and other dependencies
-# Note: PyTorch Vulkan backend is deprecated and not available in pip wheels.
-# The SNAC TTS model runs on CPU. GPU acceleration is provided by the
-# llama-cpp-server Vulkan service for LLM token generation.
-RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+# Install CPU PyTorch 2.4 (required by pytorch_dlprim) and other dependencies
+RUN pip3 install --no-cache-dir torch==2.4.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip3 install --no-cache-dir -r requirements.txt
+
+# Build pytorch_dlprim OpenCL backend from source
+# This provides GPU acceleration via OpenCL for any GPU (AMD/Intel/NVIDIA)
+RUN git clone --recurse-submodules https://github.com/softcookiepp/pytorch_dlprim.git /tmp/pytorch_dlprim && \
+    cd /tmp/pytorch_dlprim && \
+    mkdir build && cd build && \
+    cmake \
+      -DCMAKE_PREFIX_PATH=/app/venv/lib/python3.10/site-packages/torch/share/cmake/Torch \
+      -DCMAKE_INSTALL_PREFIX=/app/pytorch_ocl_install \
+      .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && rm -rf /tmp/pytorch_dlprim
 
 # Copy project files
 COPY --chown=appuser:appuser . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    USE_GPU=false
+    PYTHONPATH="/app/pytorch_ocl_install/python:$PYTHONPATH" \
+    USE_GPU=true
 
 # Expose the port
 EXPOSE 5005

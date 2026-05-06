@@ -1,0 +1,18 @@
+[bash]
+allow = [
+    "ls *",
+    "find *",
+    "head *",
+    "sort *",
+    "pwd *",
+    "stat *",
+    "git *",
+    "getent *",
+    "grep *",
+    "echo *",
+]
+
+[webfetch]
+allow = [
+    "*",
+]

@@ -39,8 +39,16 @@ except:
 
 model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
 
-# Check if CUDA is available and set device accordingly
-snac_device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+# Check for OpenCL (ocl) device first, then CUDA, MPS, or CPU
+def _ocl_is_available():
+    try:
+        import pytorch_ocl
+        torch.randn(1, device="ocl:0")
+        return True
+    except Exception:
+        return False
+
+snac_device = "ocl:0" if _ocl_is_available() else "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 if not IS_RELOADER:
     print(f"Using device: {snac_device}")
 model = model.to(snac_device)
@@ -56,6 +64,9 @@ if snac_device == "cuda":
     cuda_stream = torch.cuda.Stream()
     if not IS_RELOADER:
         print("Using CUDA stream for parallel processing")
+elif snac_device.startswith("ocl"):
+    if not IS_RELOADER:
+        print("Using OpenCL (ocl) device for GPU acceleration")
 
 
 def convert_to_audio(multiframe, count):
@@ -123,6 +134,10 @@ def convert_to_audio(multiframe, count):
             # Scale directly on GPU
             audio_int16_tensor = (audio_slice * 32767).to(torch.int16)
             # Only transfer the final result to CPU
+            audio_bytes = audio_int16_tensor.cpu().numpy().tobytes()
+        elif snac_device.startswith("ocl"):
+            # OpenCL device - scale on GPU then transfer
+            audio_int16_tensor = (audio_slice * 32767).to(torch.int16)
             audio_bytes = audio_int16_tensor.cpu().numpy().tobytes()
         else:
             # For non-CUDA devices, fall back to the original approach
@@ -292,11 +307,11 @@ async def tokens_decoder(token_gen):
 def tokens_decoder_sync(syn_token_gen):
     """Optimized synchronous decoder with larger queue and parallel processing"""
     # Use a larger queue for RTX 4090 to maximize GPU utilization
-    max_queue_size = 32 if snac_device == "cuda" else 8
+    max_queue_size = 32 if snac_device == "cuda" or snac_device.startswith("ocl") else 8
     audio_queue = queue.Queue(maxsize=max_queue_size)
     
     # Collect tokens in batches for higher throughput
-    batch_size = 16 if snac_device == "cuda" else 4
+    batch_size = 16 if snac_device == "cuda" or snac_device.startswith("ocl") else 4
     
     # Convert the synchronous token generator into an async generator with batching
     async def async_token_gen():
